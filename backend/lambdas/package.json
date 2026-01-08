@@ -1,0 +1,23 @@
+{
+  "name": "inspection-platform-lambdas",
+  "version": "1.0.0",
+  "description": "Lambda functions for Building Inspection Platform",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.962.0",
+    "@aws-sdk/client-s3": "^3.962.0",
+    "@aws-sdk/client-sns": "^3.962.0",
+    "@aws-sdk/lib-dynamodb": "^3.962.0",
+    "@aws-sdk/s3-request-presigner": "^3.962.0"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

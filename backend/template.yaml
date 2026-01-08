@@ -1,0 +1,197 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: "SAM Template for Inspection Platform Lambda Functions"
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+  VPCId:
+    Type: String
+    Description: VPC ID from infrastructure stack
+  PrivateSubnetIds:
+    Type: CommaDelimitedList
+    Description: Private subnet IDs (comma-separated)
+  SecurityGroupId:
+    Type: String
+    Description: Lambda security group ID
+  DynamoDBTableName:
+    Type: String
+    Description: DynamoDB table name
+  ImagesBucketName:
+    Type: String
+    Description: S3 bucket for images
+  SNSTopicArn:
+    Type: String
+    Description: SNS topic ARN for notifications
+
+Globals:
+  Function:
+    Runtime: nodejs24.x
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref DynamoDBTableName
+        IMAGE_BUCKET_NAME: !Ref ImagesBucketName
+        SNS_TOPIC_ARN: !Ref SNSTopicArn
+
+Resources:
+  # ==================== API Gateway ====================
+  InspectionApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub inspection-api-${Environment}
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+
+  # ==================== Lambda Functions ====================
+  CreateInspectionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub createInspection-${Environment}
+      Handler: createInspection.handler
+      CodeUri: ./lambdas/
+      VpcConfig:
+        SubnetIds: !Ref PrivateSubnetIds
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref InspectionApi
+            Path: /inspections
+            Method: POST
+
+  GetInspectionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub getInspection-${Environment}
+      Handler: getInspection.handler
+      CodeUri: ./lambdas/
+      VpcConfig:
+        SubnetIds: !Ref PrivateSubnetIds
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref InspectionApi
+            Path: /inspections/{inspectionId}
+            Method: GET
+
+  ListInspectionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub listInspections-${Environment}
+      Handler: listInspections.handler
+      CodeUri: ./lambdas/
+      VpcConfig:
+        SubnetIds: !Ref PrivateSubnetIds
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref InspectionApi
+            Path: /inspections
+            Method: GET
+
+  UpdateInspectionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub updateInspection-${Environment}
+      Handler: updateInspection.handler
+      CodeUri: ./lambdas/
+      VpcConfig:
+        SubnetIds: !Ref PrivateSubnetIds
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref InspectionApi
+            Path: /inspections/{inspectionId}
+            Method: PUT
+
+  GetPresignedUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub getPresignedUrl-${Environment}
+      Handler: getPresignedUrl.handler
+      CodeUri: ./lambdas/
+      VpcConfig:
+        SubnetIds: !Ref PrivateSubnetIds
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref ImagesBucketName
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref InspectionApi
+            Path: /presigned-url
+            Method: POST
+
+  GenerateReportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub generateReport-${Environment}
+      Handler: generateReport.handler
+      CodeUri: ./lambdas/
+      VpcConfig:
+        SubnetIds: !Ref PrivateSubnetIds
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+        - SNSPublishMessagePolicy:
+            TopicName: !Select [5, !Split [":", !Ref SNSTopicArn]]
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref InspectionApi
+            Path: /inspections/{inspectionId}/report
+            Method: POST
+
+  SendNotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sendNotification-${Environment}
+      Handler: sendNotification.handler
+      CodeUri: ./lambdas/
+      # This function doesn't need VPC access
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:inspection-notifications-${Environment}
+            BatchSize: 10
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${InspectionApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
