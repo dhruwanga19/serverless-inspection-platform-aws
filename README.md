@@ -133,7 +133,7 @@ Open your CloudFront URL in a browser.
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 inspection-platform/
@@ -236,7 +236,7 @@ aws logs tail /aws/lambda/sendNotification-prod --since 30m --follow
 
 ---
 
-## 🐛 Issues & Solutions
+## Issues & Solutions
 
 During development, several challenges were encountered and resolved:
 
@@ -266,13 +266,13 @@ aws cloudformation delete-stack --stack-name inspection-platform-infra
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built with [AWS Serverless](https://aws.amazon.com/serverless/)
 - Frontend powered by [Vite](https://vitejs.dev/) and [React](https://react.dev/)
